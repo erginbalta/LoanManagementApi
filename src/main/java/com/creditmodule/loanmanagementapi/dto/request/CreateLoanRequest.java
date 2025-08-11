@@ -30,7 +30,4 @@ public class CreateLoanRequest {
     @Schema(description = "Number of installments (allowed values: 6, 9, 12, 24)", example = "12")
     private String numberOfInstallments;
 
-    public Integer getNumberOfInstallmentsAsInt() {
-        return Integer.parseInt(numberOfInstallments);
-    }
 }

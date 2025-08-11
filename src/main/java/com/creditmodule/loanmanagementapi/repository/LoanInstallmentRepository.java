@@ -12,8 +12,17 @@ import java.util.Optional;
 
 @Repository
 public interface LoanInstallmentRepository extends JpaRepository<LoanInstallment, Long> {
-    List<LoanInstallment> findByLoanIdOrderByDueDate(Long loanId);
-    Optional<LoanInstallment> findFirstByLoanIdAndIsPaidFalseOrderByDueDateAsc(Long loanId);
-    List<LoanInstallment> findByLoanIdAndIsPaidFalseAndDueDateBefore(LocalDate date);
-    List<LoanInstallment> findByLoanIdAndIsPaidFalseOrderByDueDateAsc(Long loanId);
+
+    @Query("SELECT li FROM LoanInstallment li WHERE li.loan.id = :loanId ORDER BY li.dueDate ASC")
+    List<LoanInstallment> findByLoanIdOrderByDueDate(@Param("loanId") Long loanId);
+
+    @Query("SELECT li FROM LoanInstallment li WHERE li.loan.id = :loanId AND li.isPaid = false ORDER BY li.dueDate ASC")
+    Optional<LoanInstallment> findFirstByLoanIdAndIsPaidFalseOrderByDueDateAsc(@Param("loanId") Long loanId);
+
+    @Query("SELECT li FROM LoanInstallment li WHERE li.loan.id = :loanId AND li.isPaid = false AND li.dueDate < :date")
+    List<LoanInstallment> findByLoanIdAndIsPaidFalseAndDueDateBefore(@Param("date") LocalDate date);
+
+    @Query("SELECT li FROM LoanInstallment li WHERE li.loan.id = :loanId AND li.isPaid = false ORDER BY li.dueDate ASC")
+    List<LoanInstallment> findByLoanIdAndIsPaidFalseOrderByDueDateAsc(@Param("loanId") Long loanId);
 }
+

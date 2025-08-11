@@ -2,7 +2,9 @@ package com.creditmodule.loanmanagementapi.mapper;
 
 import com.creditmodule.loanmanagementapi.dto.response.InstallmentResponse;
 import com.creditmodule.loanmanagementapi.entity.LoanInstallment;
+import org.mapstruct.Mapper;
 
+@Mapper(componentModel = "spring")
 public class InstallmentMapper {
     public static InstallmentResponse toResponse(LoanInstallment installment) {
         InstallmentResponse response = new InstallmentResponse();

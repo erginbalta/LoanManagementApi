@@ -17,6 +17,9 @@ import com.creditmodule.loanmanagementapi.repository.LoanInstallmentRepository;
 import com.creditmodule.loanmanagementapi.repository.LoanRepository;
 import com.creditmodule.loanmanagementapi.service.ILoanService;
 import jakarta.transaction.Transactional;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.math.BigDecimal;
@@ -31,8 +34,16 @@ import java.util.stream.Collectors;
 
 @Service
 public class LoanServiceImpl implements ILoanService {
+
+    private static final Logger logger = LoggerFactory.getLogger(LoanServiceImpl.class);
+
+    @Autowired
     private final LoanRepository loanRepository;
+
+    @Autowired
     private final CustomerRepository customerRepository;
+
+    @Autowired
     private final LoanInstallmentRepository installmentRepository;
 
     public LoanServiceImpl(LoanRepository loanRepository, CustomerRepository customerRepository,
@@ -45,6 +56,7 @@ public class LoanServiceImpl implements ILoanService {
     @Override
     @Transactional
     public LoanResponse createLoan(CreateLoanRequest request) {
+        logger.debug("Creating loan with request: {}", request);
         Customer customer = customerRepository.findById(request.getCustomerId())
                 .orElseThrow(() -> new CustomerNotFoundException("Customer not found with ID: " + request.getCustomerId()));
 
@@ -62,7 +74,7 @@ public class LoanServiceImpl implements ILoanService {
 
         BigDecimal totalLoanAmount = calculateTotalLoanAmount(request.getAmount(), request.getInterestRate());
 
-        validateCreditLimit(customer, totalLoanAmount); // throws CreditLimitExceededException if needed
+        validateCreditLimit(customer, totalLoanAmount);
 
         Loan loan = new Loan();
         loan.setCustomer(customer);
@@ -71,6 +83,7 @@ public class LoanServiceImpl implements ILoanService {
         loan.setInterestRate(request.getInterestRate());
         loan.setCreateDate(LocalDate.now());
         loan.setIsPaid(false);
+        logger.debug("Saving loan with request: {}", loan);
 
         loan = loanRepository.save(loan);
 
@@ -81,12 +94,14 @@ public class LoanServiceImpl implements ILoanService {
         customer.setUsedCreditLimit(customer.getUsedCreditLimit().add(totalLoanAmount));
         customerRepository.save(customer);
 
+        logger.debug("Created loan: {}", loan);
         return LoanMapper.toResponse(loan);
     }
 
     @Override
     @Transactional
     public PaymentResult payLoan(PayLoanRequest request) {
+        logger.debug("Paying loan with request: {}", request);
         Loan loan = loanRepository.findById(request.getLoanId())
                 .orElseThrow(() -> new CustomerNotFoundException("Loan not found with ID: " + request.getLoanId()));
 
@@ -124,69 +139,83 @@ public class LoanServiceImpl implements ILoanService {
             loanRepository.save(loan);
         }
 
-        return PaymentResult.builder()
-                .installmentsPaid(paidCount)
-                .totalAmountSpent(totalSpent)
-                .loanFullyPaid(loanFullyPaid)
-                .build();
+        PaymentResult result = buildPaymentResult(paidCount, totalSpent, loanFullyPaid);
+        logger.debug("Payment result: {}", result);
+        return result;
     }
 
     @Override
     @Transactional
     public LoanResponse getLoanDetails(Long loanId) {
+        logger.debug("Getting loan details for loan ID: {}", loanId);
         Loan loan = loanRepository.findById(loanId)
                 .orElseThrow(() -> new CustomerNotFoundException("Loan not found with ID: " + loanId));
 
-        return LoanMapper.toResponse(loan);
+        LoanResponse response = LoanMapper.toResponse(loan);
+        logger.debug("Loan details: {}", response);
+        return response;
     }
 
     @Override
     @Transactional
     public List<LoanResponse> getLoansByCustomer(Long customerId) {
+        logger.debug("Getting loans for customer ID: {}", customerId);
         List<Loan> loans = loanRepository.findByCustomerId(customerId);
 
         if (loans.isEmpty()) {
             throw new CustomerNotFoundException("No loans found for customer ID: " + customerId);
         }
 
-        return loans.stream()
+        List<LoanResponse> responses = loans.stream()
                 .map(LoanMapper::toResponse)
                 .collect(Collectors.toList());
+        logger.debug("Loans for customer: {}", responses);
+        return responses;
     }
 
     @Override
     @Transactional
     public List<LoanResponse> getLoansByCustomerWithFilters(Long customerId, Boolean isPaid, Integer numberOfInstallments) {
+        logger.debug("Getting loans for customer ID: {} with filters isPaid: {}, numberOfInstallments: {}", customerId, isPaid, numberOfInstallments);
         List<Loan> loans = loanRepository.findByCustomerIdWithFilters(customerId, isPaid, numberOfInstallments);
 
         if (loans.isEmpty()) {
             throw new CustomerNotFoundException("No loans found for customer ID: " + customerId + " with given filters.");
         }
 
-        return loans.stream()
+        List<LoanResponse> responses = loans.stream()
                 .map(LoanMapper::toResponse)
                 .collect(Collectors.toList());
+        logger.debug("Filtered loans for customer: {}", responses);
+        return responses;
     }
 
     private PaymentResult buildPaymentResult(int paidCount, BigDecimal totalSpent, boolean loanFullyPaid) {
-        return PaymentResult.builder()
+        PaymentResult result = PaymentResult.builder()
                 .installmentsPaid(paidCount)
                 .totalAmountSpent(totalSpent)
                 .loanFullyPaid(loanFullyPaid)
                 .build();
+        logger.debug("Built payment result: {}", result);
+        return result;
     }
 
     private boolean isValidInstallment(int value) {
+        logger.debug("Checking if installment value {} is valid", value);
         for (InstallmentNumbers num : InstallmentNumbers.values()) {
             if (num.getValue() == value) {
+                logger.debug("Installment value {} is valid", value);
                 return true;
             }
         }
+        logger.debug("Installment value {} is invalid", value);
         return false;
     }
 
     private BigDecimal calculateTotalLoanAmount(BigDecimal amount, BigDecimal interestRate) {
-        return amount.multiply(interestRate.add(BigDecimal.ONE));
+        BigDecimal total = amount.multiply(interestRate.add(BigDecimal.ONE));
+        logger.debug("Calculated total loan amount: {}", total);
+        return total;
     }
 
     private void validateCreditLimit(Customer customer, BigDecimal requestedAmount) {
@@ -194,22 +223,27 @@ public class LoanServiceImpl implements ILoanService {
         if (requestedAmount.compareTo(availableLimit) > 0) {
             throw new CreditLimitExceededException("Requested amount exceeds available credit limit.");
         }
+        logger.debug("Credit limit validated for customer: {}", customer.getId());
     }
 
     private List<LoanInstallment> generateInstallments(Loan loan, int numInstallments) {
-        BigDecimal installmentAmount = loan.getLoanAmount().divide(BigDecimal.valueOf(numInstallments), 2, RoundingMode.HALF_UP);
         List<LoanInstallment> installments = new ArrayList<>();
-        LocalDate dueDate = LocalDate.now().plusMonths(1).withDayOfMonth(1);
+        BigDecimal installmentAmount = loan.getLoanAmount()
+                .divide(BigDecimal.valueOf(numInstallments), 2, RoundingMode.HALF_UP);
 
-        for (int i = 0; i < numInstallments; i++) {
+        for (int i = 1; i <= numInstallments; i++) {
             LoanInstallment installment = new LoanInstallment();
             installment.setLoan(loan);
+            installment.setInstallmentNumber(i);
             installment.setAmount(installmentAmount);
-            installment.setPaidAmount(BigDecimal.ZERO);
-            installment.setDueDate(dueDate.plusMonths(i));
+            installment.setDueDate(LocalDate.now().plusMonths(i));
             installment.setIsPaid(false);
+            installment.setPaidAmount(BigDecimal.ZERO);
+            installment.setPaymentDate(null);
+
             installments.add(installment);
         }
+
         return installments;
     }
 }

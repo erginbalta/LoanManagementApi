@@ -37,17 +37,20 @@ public class SecurityConfig {
         http
                 .csrf(csrf -> csrf.disable())
                 .authorizeHttpRequests(auth -> auth
-                        // Swagger erişimi serbest
-                        .requestMatchers("/v3/api-docs/**", "/swagger-ui/**", "/swagger-ui.html").permitAll()
+                        .requestMatchers(
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/h2-console/**"
+                        ).permitAll()
 
-                        // Admin işlemleri
-                        .requestMatchers("/api/customers/**").hasRole("ADMIN")
+                        // Tüm API'lere hem ADMIN hem CUSTOMER erişebilir
+                        .requestMatchers(
+                                "/api/customers/**",
+                                "/api/loans/**",
+                                "/api/installments/**"
+                        ).hasAnyRole("ADMIN", "CUSTOMER")
 
-                        // Customer işlemleri
-                        .requestMatchers("/api/loans/**").hasRole("CUSTOMER")
-                        .requestMatchers("/api/installments/**").hasRole("CUSTOMER")
-
-                        // Diğer tüm istekler kimlik doğrulaması ister
                         .anyRequest().authenticated()
                 )
                 .httpBasic(Customizer.withDefaults());

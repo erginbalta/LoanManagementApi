@@ -3,9 +3,11 @@ package com.creditmodule.loanmanagementapi.mapper;
 import com.creditmodule.loanmanagementapi.dto.request.CreateCustomerRequest;
 import com.creditmodule.loanmanagementapi.dto.response.CustomerResponse;
 import com.creditmodule.loanmanagementapi.entity.Customer;
+import org.mapstruct.Mapper;
 
 import java.math.BigDecimal;
 
+@Mapper(componentModel = "spring")
 public class CustomerMapper {
     public Customer toEntity(CreateCustomerRequest request) {
         Customer customer = new Customer();
