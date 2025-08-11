@@ -202,6 +202,7 @@ Error responses are returned in JSON format:
   - `installments`
 - username: sa
 -password: password
+-h2 console jdbc url : jdbc:h2:mem:loandb
 
 ---
 
